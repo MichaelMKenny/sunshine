@@ -205,6 +205,7 @@ struct session_t {
 int start_broadcast(broadcast_ctx_t &ctx);
 void end_broadcast(broadcast_ctx_t &ctx);
 
+static control_server_t *global_control_server;
 
 static auto broadcast = safe::make_shared<broadcast_ctx_t>(start_broadcast, end_broadcast);
 safe::signal_t broadcast_shutdown_event;
@@ -771,6 +772,8 @@ int start_broadcast(broadcast_ctx_t &ctx) {
 
   ctx.recv_thread = std::thread { recvThread, std::ref(ctx) };
 
+  global_control_server = &ctx.control_server;
+
   return 0;
 }
 
@@ -940,6 +943,18 @@ std::shared_ptr<session_t> alloc(config_t &config, crypto::aes_t &gcm_key, crypt
   session->state.store(state_e::STOPPED, std::memory_order_relaxed);
 
   return session;
+}
+
+void send_rumble_packet(UCHAR low_freq_motor, UCHAR high_freq_motor) {
+  std::array<std::uint16_t, 6> payload;
+  payload[0] = packetTypes[IDX_RUMBLE_DATA];
+  payload[1] = 0;
+  payload[2] = 0;
+  payload[3] = 0; // controller number
+  payload[4] = low_freq_motor * 256;
+  payload[5] = high_freq_motor * 256;
+
+  global_control_server->send(std::string_view{(char *)payload.data(), payload.size() * sizeof(uint16_t)});
 }
 }
 }

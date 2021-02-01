@@ -35,6 +35,7 @@ int start(session_t &session, const std::string &addr_string);
 void stop(session_t &session);
 void join(session_t &session);
 state_e state(session_t &session);
+void send_rumble_packet(UCHAR low_freq_motor, UCHAR high_freq_motor);
 }
 
 extern safe::signal_t broadcast_shutdown_event;

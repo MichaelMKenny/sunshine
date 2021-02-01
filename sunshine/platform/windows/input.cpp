@@ -11,11 +11,20 @@
 
 #include "sunshine/main.h"
 #include "sunshine/platform/common.h"
+#include "sunshine/stream.h"
 
 namespace platf {
 using namespace std::literals;
 
 using adapteraddrs_t = util::c_ptr<IP_ADAPTER_ADDRESSES>;
+
+VOID CALLBACK rumble_notification(
+    PVIGEM_CLIENT client,
+    PVIGEM_TARGET target,
+    UCHAR large_motor,
+    UCHAR small_motor,
+    UCHAR led_number
+);
 
 class vigem_t {
 public:
@@ -48,6 +57,14 @@ public:
     if(!VIGEM_SUCCESS(status)) {
       BOOST_LOG(error) << "Couldn't add Gamepad to ViGEm connection ["sv << util::hex(status).to_string_view() << ']';
 
+      return -1;
+    }
+
+    const auto retval = vigem_target_x360_register_notification(client.get(), x360.get(), &rumble_notification);
+
+    if (!VIGEM_SUCCESS(retval))
+    {
+      BOOST_LOG(error)  << "Registering for notification failed with error code: 0x" << std::hex << retval;
       return -1;
     }
 
@@ -331,5 +348,17 @@ void freeInput(void *p) {
   auto vigem = (vigem_t*)p;
 
   delete vigem;
+}
+
+VOID CALLBACK rumble_notification(
+    PVIGEM_CLIENT client,
+    PVIGEM_TARGET target,
+    UCHAR large_motor,
+    UCHAR small_motor,
+    UCHAR led_number
+)
+{
+    BOOST_LOG(info) << "Rumble: " << " LowFreq: " << (int)large_motor << " HighFreq: " << (int)small_motor;
+    stream::session::send_rumble_packet(large_motor, small_motor);
 }
 }
