@@ -358,7 +358,10 @@ VOID CALLBACK rumble_notification(
     UCHAR led_number
 )
 {
-    BOOST_LOG(info) << "Rumble: " << " LowFreq: " << (int)large_motor << " HighFreq: " << (int)small_motor;
-    stream::session::send_rumble_packet(large_motor, small_motor);
+    ULONG index;
+    vigem_target_x360_get_user_index(client, target, &index);
+
+    BOOST_LOG(info) << "Rumble: Player Number: " << index << " LowFreq: " << (int)large_motor << " HighFreq: " << (int)small_motor;
+    stream::session::send_rumble_packet(index, large_motor, small_motor);
 }
 }

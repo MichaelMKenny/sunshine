@@ -945,12 +945,12 @@ std::shared_ptr<session_t> alloc(config_t &config, crypto::aes_t &gcm_key, crypt
   return session;
 }
 
-void send_rumble_packet(UCHAR low_freq_motor, UCHAR high_freq_motor) {
+void send_rumble_packet(UINT player_index, UCHAR low_freq_motor, UCHAR high_freq_motor) {
   std::array<std::uint16_t, 6> payload;
   payload[0] = packetTypes[IDX_RUMBLE_DATA];
   payload[1] = 0;
   payload[2] = 0;
-  payload[3] = 0; // controller number
+  payload[3] = player_index;
   payload[4] = low_freq_motor * 256;
   payload[5] = high_freq_motor * 256;
 
