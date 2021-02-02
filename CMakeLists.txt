@@ -76,6 +76,7 @@ if(WIN32)
 		iphlpapi
 		d3d11 dxgi
 		setupapi
+		qwave
 		)
 
 	set_source_files_properties(ViGEmClient/src/ViGEmClient.cpp PROPERTIES COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650")
