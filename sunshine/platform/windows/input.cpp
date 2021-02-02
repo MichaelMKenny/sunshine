@@ -11,11 +11,21 @@
 
 #include "sunshine/main.h"
 #include "sunshine/platform/common.h"
+#include "sunshine/stream.h"
 
 namespace platf {
 using namespace std::literals;
 
 using adapteraddrs_t = util::c_ptr<IP_ADAPTER_ADDRESSES>;
+
+VOID CALLBACK rumble_notification(
+    PVIGEM_CLIENT client,
+    PVIGEM_TARGET target,
+    UCHAR large_motor,
+    UCHAR small_motor,
+    UCHAR led_number,
+    LPVOID user_data
+);
 
 class vigem_t {
 public:
@@ -51,11 +61,20 @@ public:
       return -1;
     }
 
+    const auto retval = vigem_target_x360_register_notification(client.get(), x360.get(), &rumble_notification, (LPVOID)this);
+    if (!VIGEM_SUCCESS(retval))
+    {
+      BOOST_LOG(error)  << "Registering for notification failed with error code: 0x" << std::hex << retval;
+      return -1;
+    }
+
     return 0;
   }
 
   void free_target(int nr) {
     auto &x360 = x360s[nr];
+
+    vigem_target_x360_unregister_notification(x360.get());
 
     if(x360 && vigem_target_is_attached(x360.get())) {
       auto status = vigem_target_remove(client.get(), x360.get());
@@ -80,6 +99,37 @@ public:
 
       vigem_disconnect(client.get());
     }
+  }
+
+  static VOID CALLBACK rumble_notification(
+      PVIGEM_CLIENT client,
+      PVIGEM_TARGET target,
+      UCHAR large_motor,
+      UCHAR small_motor,
+      UCHAR led_number,
+      LPVOID user_data
+  )
+  {
+    vigem_t *self = (vigem_t *)user_data;
+    auto *x360s = &(self->x360s);
+
+    INT index = -1;
+
+    for (size_t i = 0; i < x360s->size(); i++) {
+      auto t = (x360s->begin() + i);
+      if (t->get() == target) {
+        index = i;
+        break;
+      }
+    }
+    
+    if (index == -1) {
+      BOOST_LOG(warning) << "Cannot find controller index";
+      return;
+    }
+
+    BOOST_LOG(info) << "Rumble: Player Number: " << index << " LowFreq: " << (int)large_motor << " HighFreq: " << (int)small_motor;
+    stream::session::send_rumble_packet(index, large_motor, small_motor);
   }
 
   std::vector<target_t> x360s;
