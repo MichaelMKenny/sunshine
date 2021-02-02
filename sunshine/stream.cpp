@@ -498,7 +498,7 @@ void controlBroadcastThread(safe::signal_t *shutdown_event, control_server_t *se
       payload[0] = packetTypes[IDX_TERMINATION];
       payload[1] = reason;
 
-      server->send(std::string_view {(char*)payload.data(), payload.size()});
+      server->send(std::string_view {(char*)payload.data(), payload.size() * sizeof(uint16_t)});
 
       auto lg = server->_map_addr_session.lock();
       for(auto pos = std::begin(*server->_map_addr_session); pos != std::end(*server->_map_addr_session); ++pos) {
