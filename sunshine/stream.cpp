@@ -656,6 +656,7 @@ void videoBroadcastThread(safe::signal_t *shutdown_event, udp::socket &sock, vid
 
         video_packet->rtp.header = FLAG_EXTENSION;
         video_packet->rtp.sequenceNumber = util::endian::big<uint16_t>(lowseq + fecIndex);
+        video_packet->rtp.timestamp = util::endian::big<unsigned int>(packet->real_pts);
       });
 
     payload = {(char *) payload_new.data(), payload_new.size()};

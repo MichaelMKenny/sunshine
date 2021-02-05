@@ -31,6 +31,7 @@ struct packet_raw_t : public AVPacket {
   }
 
   void *channel_data;
+  unsigned int real_pts;
 };
 
 using packet_t       = std::unique_ptr<packet_raw_t>;
