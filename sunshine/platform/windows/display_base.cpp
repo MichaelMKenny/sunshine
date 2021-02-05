@@ -20,7 +20,7 @@ capture_e duplication_t::next_frame(DXGI_OUTDUPL_FRAME_INFO &frame_info, std::ch
     return capture_status;
   }
 
-  auto status = dup->AcquireNextFrame(timeout.count(), &frame_info, res_p);
+  auto status = dup->AcquireNextFrame(INFINITE, &frame_info, res_p);
 
   switch(status) {
     case S_OK:
