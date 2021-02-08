@@ -649,15 +649,6 @@ void cancel(resp_https_t response, req_https_t request) {
     response->write(data.str());
   });
 
-  // It is possible that due a race condition that this if-statement gives a false positive,
-  // the client should try again
-  if(stream::session_count() != 0) {
-    tree.put("root.resume", 0);
-    tree.put("root.<xmlattr>.status_code", 503);
-
-    return;
-  }
-
   tree.put("root.cancel", 1);
   tree.put("root.<xmlattr>.status_code", 200);
 
