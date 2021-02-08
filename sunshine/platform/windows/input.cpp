@@ -129,7 +129,7 @@ public:
     }
 
     BOOST_LOG(info) << "Rumble: Player Number: " << index << " LowFreq: " << (int)large_motor << " HighFreq: " << (int)small_motor;
-    stream::session::send_rumble_packet(index, large_motor, small_motor);
+    stream::enqueue_rumble_packet(index, large_motor, small_motor);
   }
 
   std::vector<target_t> x360s;

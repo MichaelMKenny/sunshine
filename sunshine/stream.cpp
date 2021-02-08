@@ -83,6 +83,12 @@ struct audio_packet_raw_t {
   RTP_PACKET rtp;
 };
 
+struct rumble_request_t {
+  UINT player_index;
+  UCHAR low_freq_motor;
+  UCHAR high_freq_motor;
+};
+
 #pragma pack(pop)
 
 using rh_t           = util::safe_ptr<reed_solomon, reed_solomon_release>;
@@ -91,6 +97,8 @@ using audio_packet_t = util::c_ptr<audio_packet_raw_t>;
 
 using message_queue_t = std::shared_ptr<safe::queue_t<std::pair<std::uint16_t, std::string>>>;
 using message_queue_queue_t = std::shared_ptr<safe::queue_t<std::tuple<socket_e, asio::ip::address, message_queue_t>>>;
+
+using rumble_request_queue_t = safe::queue_t<rumble_request_t>;
 
 static inline void while_starting_do_nothing(std::atomic<session::state_e> &state) {
   while(state.load(std::memory_order_acquire) == session::state_e::STARTING) {
@@ -205,10 +213,10 @@ struct session_t {
 int start_broadcast(broadcast_ctx_t &ctx);
 void end_broadcast(broadcast_ctx_t &ctx);
 
-static control_server_t *global_control_server;
-
 static auto broadcast = safe::make_shared<broadcast_ctx_t>(start_broadcast, end_broadcast);
 safe::signal_t broadcast_shutdown_event;
+
+static rumble_request_queue_t rumble_queue { 10 };
 
 session_t *control_server_t::get_session(const net::peer_t peer) {
   TUPLE_2D(port, addr_string, platf::from_sockaddr_ex((sockaddr*)&peer->address.address));
@@ -508,7 +516,19 @@ void controlBroadcastThread(safe::signal_t *shutdown_event, control_server_t *se
       }
     }
 
-    server->iterate(500ms);
+    {
+      void send_rumble_packet(UINT player_index, UCHAR low_freq_motor, UCHAR high_freq_motor);
+
+      if (rumble_queue.peek()) {
+        auto request = rumble_queue.pop();
+        if (request.has_value()) {
+          auto r = request.value();
+          send_rumble_packet(r.player_index, r.low_freq_motor, r.high_freq_motor);
+        }
+      }
+    }
+
+    server->iterate(15ms);
   }
 }
 
@@ -772,7 +792,6 @@ int start_broadcast(broadcast_ctx_t &ctx) {
 
   ctx.recv_thread = std::thread { recvThread, std::ref(ctx) };
 
-  global_control_server = &ctx.control_server;
 
   return 0;
 }
@@ -944,6 +963,15 @@ std::shared_ptr<session_t> alloc(config_t &config, crypto::aes_t &gcm_key, crypt
 
   return session;
 }
+}
+
+void enqueue_rumble_packet(UINT player_index, UCHAR low_freq_motor, UCHAR high_freq_motor) {
+  auto request = rumble_request_t();
+  request.player_index = player_index;
+  request.low_freq_motor = low_freq_motor;
+  request.high_freq_motor = high_freq_motor;
+  rumble_queue.raise(request);
+}
 
 void send_rumble_packet(UINT player_index, UCHAR low_freq_motor, UCHAR high_freq_motor) {
   std::array<std::uint16_t, 6> payload;
@@ -954,7 +982,7 @@ void send_rumble_packet(UINT player_index, UCHAR low_freq_motor, UCHAR high_freq
   payload[4] = low_freq_motor * 256;
   payload[5] = high_freq_motor * 256;
 
-  global_control_server->send(std::string_view{(char *)payload.data(), payload.size() * sizeof(uint16_t)});
-}
+  auto ref = broadcast.ref();
+  ref->control_server.send(std::string_view{(char *)payload.data(), payload.size() * sizeof(uint16_t)});
 }
 }
