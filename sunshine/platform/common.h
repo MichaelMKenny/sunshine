@@ -134,6 +134,7 @@ void move_mouse(input_t &input, int deltaX, int deltaY);
 void button_mouse(input_t &input, int button, bool release);
 void scroll(input_t &input, int distance);
 void keyboard(input_t &input, uint16_t modcode, bool release);
+void release_modifier_keys();
 void gamepad(input_t &input, int nr, const gamepad_state_t &gamepad_state);
 
 int alloc_gamepad(input_t &input, int nr);

@@ -530,6 +530,8 @@ void controlBroadcastThread(safe::signal_t *shutdown_event, control_server_t *se
 
     server->iterate(15ms);
   }
+
+  input::close_keyboard_tasks();
 }
 
 void recvThread(broadcast_ctx_t &ctx) {

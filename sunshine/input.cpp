@@ -195,6 +195,17 @@ void repeat_key(short key_code) {
   task_id = task_pool.pushDelayed(repeat_key, config::input.key_repeat_period, key_code).task_id;
 }
 
+void close_keyboard_tasks() {
+  BOOST_LOG(info) << "task_id: " << task_id;
+
+  if (task_id) {
+    task_pool.cancel(task_id);
+    task_id = nullptr;
+  }
+
+  platf::release_modifier_keys();
+}
+
 void passthrough(std::shared_ptr<input_t> &input, PNV_KEYBOARD_PACKET packet) {
   auto constexpr BUTTON_RELEASED = 0x04;
 

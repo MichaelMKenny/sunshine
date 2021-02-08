@@ -229,7 +229,7 @@ void move_mouse(input_t &input, int deltaX, int deltaY) {
 }
 
 void button_mouse(input_t &input, int button, bool release) {
-  constexpr SHORT KEY_STATE_DOWN = 0x8000;
+  constexpr USHORT KEY_STATE_DOWN = 0x8000;
 
   INPUT i {};
 
@@ -289,22 +289,9 @@ void scroll(input_t &input, int distance) {
   }
 }
 
-void keyboard(input_t &input, uint16_t modcode, bool release) {
-  INPUT i {};
-  i.type = INPUT_KEYBOARD;
-  auto &ki = i.ki;
-
-  // For some reason, MapVirtualKey(VK_LWIN, MAPVK_VK_TO_VSC) doesn't seem to work :/
-  if(modcode != VK_LWIN && modcode != VK_RWIN && modcode != VK_PAUSE) {
-    ki.wScan = MapVirtualKey(modcode, MAPVK_VK_TO_VSC);
-    ki.dwFlags = KEYEVENTF_SCANCODE;
-  }
-  else {
-    ki.wVk = modcode;
-  }
-
+DWORD extended_key_flags(WORD vk) {
   // https://docs.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#keystroke-message-flags
-  switch(modcode) {
+  switch(vk) {
     case VK_RMENU:
     case VK_RCONTROL:
     case VK_INSERT:
@@ -318,11 +305,27 @@ void keyboard(input_t &input, uint16_t modcode, bool release) {
     case VK_LEFT:
     case VK_RIGHT:
     case VK_DIVIDE:
-      ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
-      break;
+      return KEYEVENTF_EXTENDEDKEY;
     default:
-      break;
+      return 0;
   }
+}
+
+void keyboard(input_t &input, uint16_t modcode, bool release) {
+  INPUT i {};
+  i.type = INPUT_KEYBOARD;
+  auto &ki = i.ki;
+
+  // For some reason, MapVirtualKey(VK_LWIN, MAPVK_VK_TO_VSC) doesn't seem to work :/
+  if(modcode != VK_LWIN && modcode != VK_RWIN && modcode != VK_PAUSE) {
+    ki.wScan = MapVirtualKey(modcode, MAPVK_VK_TO_VSC);
+    ki.dwFlags = KEYEVENTF_SCANCODE;
+  }
+  else {
+    ki.wVk = modcode;
+  }
+  
+  ki.dwFlags |= extended_key_flags(modcode);
 
   if(release) {
     ki.dwFlags |= KEYEVENTF_KEYUP;
@@ -331,6 +334,27 @@ void keyboard(input_t &input, uint16_t modcode, bool release) {
   auto send = SendInput(1, &i, sizeof(INPUT));
   if(send != 1) {
     BOOST_LOG(warning) << "Couldn't send moue movement input"sv;
+  }
+}
+
+void release_modifier_keys() {
+  INPUT i {};
+  i.type = INPUT_KEYBOARD;
+  auto &ki = i.ki;
+
+  WORD modifiers[] = { VK_MENU, VK_RMENU, VK_CONTROL, VK_RCONTROL, VK_SHIFT, VK_RSHIFT };
+
+  for (size_t j = 0; j < sizeof(modifiers) / sizeof(modifiers[0]); j++) {
+    auto modifier = modifiers[j]; 
+
+    constexpr USHORT KEY_STATE_DOWN = 0x8000;
+    auto alt_key_state = GetAsyncKeyState(modifier);
+    if (alt_key_state & KEY_STATE_DOWN)
+    {
+      ki.wVk = modifier;
+      ki.dwFlags = extended_key_flags(modifier) | KEYEVENTF_KEYUP;
+      SendInput(1, &i, sizeof(INPUT));
+    }
   }
 }
 
