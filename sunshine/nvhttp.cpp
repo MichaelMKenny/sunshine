@@ -769,7 +769,7 @@ void start(std::shared_ptr<safe::signal_t> shutdown_event) {
       X509_NAME_oneline(X509_get_subject_name(X509_STORE_CTX_get_current_cert(x509)), subject_name, sizeof(subject_name));
 
 
-      BOOST_LOG(info) << subject_name << " -- "sv << (verified ? "verfied"sv : "denied"sv);
+      BOOST_LOG(debug) << subject_name << " -- "sv << (verified ? "verfied"sv : "denied"sv);
     });
 
     if(verified) {
