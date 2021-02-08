@@ -470,7 +470,7 @@ void captureThread(
   }
 }
 
-int encode(int64_t frame_nr, ctx_t &ctx, frame_t &frame, packet_queue_t &packets, void *channel_data) {
+int encode(int64_t frame_nr, ctx_t &ctx, frame_t &frame, packet_queue_t &packets, void *channel_data, unsigned int real_pts) {
   frame->pts = frame_nr;
 
   /* send the frame to the encoder */
@@ -494,6 +494,7 @@ int encode(int64_t frame_nr, ctx_t &ctx, frame_t &frame, packet_queue_t &packets
     }
 
     packet->channel_data = channel_data;
+    packet->real_pts = real_pts;
     packets->raise(std::move(packet));
   }
 
@@ -752,7 +753,7 @@ void encode_run(
       }
     }
     
-    if(encode(frame_nr++, session->ctx, session->frame, packets, channel_data)) {
+    if(encode(frame_nr++, session->ctx, session->frame, packets, channel_data, 0)) {
       BOOST_LOG(error) << "Could not encode video packet"sv;
       return;
     }
@@ -787,6 +788,7 @@ std::optional<sync_session_t> make_synced_session(platf::display_t *disp, const 
   return std::move(encode_session);
 }
 
+static std::chrono::steady_clock::time_point pts_start_epoch;
 encode_e encode_run_sync(std::vector<std::unique_ptr<sync_session_ctx_t>> &synced_session_ctxs, encode_session_ctx_queue_t &encode_session_ctx_queue) {
   const auto &encoder = encoders.front();
 
@@ -849,6 +851,8 @@ encode_e encode_run_sync(std::vector<std::unique_ptr<sync_session_ctx_t>> &synce
     
     auto now = std::chrono::steady_clock::now();
     
+    auto diff = (now - pts_start_epoch);
+    auto pts = (diff.count() / 1000000) * 90;
     next_frame = now + 1s;
     KITTY_WHILE_LOOP(auto pos = std::begin(synced_sessions), pos != std::end(synced_sessions), {
       auto ctx = pos->ctx;
@@ -909,7 +913,7 @@ encode_e encode_run_sync(std::vector<std::unique_ptr<sync_session_ctx_t>> &synce
         encoder.img_to_frame(*pos->hwdevice->img, pos->session.frame);
       }
 
-      if(encode(ctx->frame_nr++, pos->session.ctx, pos->session.frame, ctx->packets, ctx->channel_data)) {
+      if(encode(ctx->frame_nr++, pos->session.ctx, pos->session.frame, ctx->packets, ctx->channel_data, pts)) {
         BOOST_LOG(error) << "Could not encode video packet"sv;
         ctx->shutdown_event->raise(true);
 
@@ -946,6 +950,8 @@ void captureThreadSync() {
       ctx.join_event->raise(true);
     }
   });
+
+  pts_start_epoch = std::chrono::steady_clock::now();
 
   while(encode_run_sync(synced_session_ctxs, ctx) == encode_e::reinit);
 }
@@ -1073,7 +1079,7 @@ bool validate_config(std::shared_ptr<platf::display_t> &disp, const encoder_t &e
   session->frame->pict_type = AV_PICTURE_TYPE_I;
 
   auto packets = std::make_shared<packet_queue_t::element_type>(30);
-  if(encode(1, session->ctx, session->frame, packets, nullptr)) {
+  if(encode(1, session->ctx, session->frame, packets, nullptr, 0)) {
     return false;
   }
 
